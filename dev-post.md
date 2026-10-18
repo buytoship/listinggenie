@@ -27,7 +27,7 @@ Share a deployed link or a video demo.
 
 ## Code
 
-[REPO_URL]
+https://github.com/buytoship/listinggenie
 
 The repo contains `app.py` (zero-dependency Python web demo + CLI), `generator.py` (the generator core), `README.md`, `LICENSE` (MIT), and `examples/` with a real tested run against a 2027 calendar listing.
 

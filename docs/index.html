@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ListingGenie — Live Demo</title>
+<style>
+  body{font-family:system-ui,-apple-system,sans-serif;max-width:760px;margin:2rem auto;padding:0 1rem;color:#1a1a1a}
+  label{display:block;margin:.7rem 0 .2rem;font-weight:600}
+  input,select,textarea{width:100%;padding:.5rem;box-sizing:border-box}
+  button{margin-top:1rem;padding:.6rem 1.2rem;font-size:1rem;cursor:pointer}
+  pre{background:#f4f4f4;padding:1rem;white-space:pre-wrap;word-wrap:break-word}
+  .muted{color:#555}
+</style>
+</head>
+<body>
+<h1>ListingGenie — Live Demo</h1>
+<p>Turn rough notes into an Etsy/eBay-ready listing: 3 title variants (&le;140 chars),
+13 tags (&le;20 chars each), a structured description, and an Etsy fee / pricing tip.</p>
+<p class="muted">This page runs the deterministic fallback engine in your browser.
+The full app (<a href="https://github.com/buytoship/listinggenie">source on GitHub</a>)
+drafts copy with a local open-weight model via Ollama when one is available — no API key, no per-token cost.</p>
+
+<form id="f">
+<label>Product name</label>
+<input name="name" value="2027 Minimalist Calendar Printable">
+<label>Platform</label>
+<select name="platform"><option>etsy</option><option>ebay</option></select>
+<label>Category</label>
+<input name="category" value="printable planner">
+<label>Format</label>
+<input name="format" value="PDF, A4 + US Letter, GoodNotes ready">
+<label>Keywords (comma separated)</label>
+<input name="keywords" value="2027 calendar, monthly planner, wall calendar 2027, year at a glance">
+<label>Features (one per line)</label>
+<textarea name="features" rows="4">12 monthly pages (January-December 2027) + 1 year-at-a-glance page
+Sunday-start and Monday-start versions included
+Print PDF (A4 + US Letter) + hyperlinked GoodNotes/iPad version</textarea>
+<label>Target buyer</label>
+<input name="audience" value="planner lovers">
+<label>Price (USD, optional)</label>
+<input name="price" value="6.99">
+<button type="submit">Generate listing</button>
+</form>
+
+<div id="out"></div>
+
+<script>
+function cleanTag(s){ return s.toLowerCase().replace(/[^a-z0-9 &+-]/g," ").replace(/\s+/g," ").trim().slice(0,20).trim(); }
+function generate(p){
+  const limit = 140, titles = [], seenT = new Set();
+  const kws = p.keywords.filter(Boolean);
+  const seeds = [];
+  if (kws.length) seeds.push([p.name, ...kws.slice(0,3)].join(", "));
+  if (p.audience) seeds.push(p.name + " for " + p.audience);
+  seeds.push(p.name + (p.format ? ", " + p.format : "") + (kws[0] ? ", " + kws[0] : ""));
+  seeds.push([...new Set([p.name, ...kws, p.format].filter(Boolean))].join(", "));
+  for (const s of seeds){
+    const t = s.slice(0, limit).replace(/, $/,"");
+    if (t && !seenT.has(t.toLowerCase())){ seenT.add(t.toLowerCase()); titles.push(t); }
+  }
+  const raw = [...kws, p.name, p.category, p.format, "digital download","instant download","printable","digital product"];
+  const tags = [], seen = new Set();
+  const add = c => { const t = cleanTag(c||""); if (t && t.length>=3 && !seen.has(t)){ seen.add(t); tags.push(t); } };
+  for (const item of raw){ add(item); if (tags.length>=13) break; }
+  if (tags.length<13) for (const item of raw){ for (const w of (item||"").split(/\s+/)){ if (w.length>3) add(w); if (tags.length>=13) break; } if (tags.length>=13) break; }
+  const feats = p.features.length ? p.features : ["Instant digital download","Easy to use, no software required"];
+  const desc = p.name + " — Instant Digital Download\n\nWHAT'S INCLUDED\n" +
+    feats.map(f=>"• "+f).join("\n") +
+    "\n\nHOW IT WORKS\n1. Purchase & download instantly\n2. Open, print, or import into your favourite app\n3. Start using it in minutes\n\nPLEASE NOTE\n• Digital download only — no physical item will be shipped\n• For personal use unless a commercial licence is stated\n";
+  let tip;
+  const price = parseFloat(p.price);
+  if (p.price && !isNaN(price)){
+    const fee = 0.20 + price*0.065 + price*0.03 + 0.25;
+    tip = "At $" + price.toFixed(2) + " on Etsy: est. fees ≈ $" + fee.toFixed(2) +
+          " (listing $0.20 + 6.5% + 3% + $0.25), you keep ≈ $" + (price-fee).toFixed(2) +
+          " before offsite-ads (optional under $10k/yr sales).";
+  } else {
+    tip = "No price given. For Etsy digital products, comparable listings cluster at $3–$30 single / $15–$75 bundle.";
+  }
+  return {titles: titles.slice(0,3), tags, desc, tip};
+}
+document.getElementById("f").addEventListener("submit", e => {
+  e.preventDefault();
+  const fd = new FormData(e.target);
+  const p = {
+    name: fd.get("name").trim(), platform: fd.get("platform"), category: fd.get("category").trim(),
+    format: fd.get("format").trim(),
+    keywords: fd.get("keywords").split(",").map(s=>s.trim()).filter(Boolean),
+    features: fd.get("features").split("\n").map(s=>s.trim()).filter(Boolean),
+    audience: fd.get("audience").trim(), price: fd.get("price").trim()
+  };
+  const r = generate(p);
+  const esc = s => s.replace(/&/g,"&amp;").replace(/</g,"&lt;");
+  document.getElementById("out").innerHTML =
+    "<h2>Generated listing</h2><p><em>Engine: fallback (in-browser port of rules-v1)</em></p>" +
+    "<h3>Titles</h3><pre>" + r.titles.map(t=>"- ("+t.length+" chars) "+esc(t)).join("\n") + "</pre>" +
+    "<h3>Tags (" + r.tags.length + ")</h3><pre>" + esc(r.tags.join(", ")) + "</pre>" +
+    "<h3>Description</h3><pre>" + esc(r.desc) + "</pre>" +
+    "<h3>Pricing tip</h3><pre>" + esc(r.tip) + "</pre>";
+});
+</script>
+</body>
+</html>
