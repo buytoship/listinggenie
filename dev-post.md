@@ -21,9 +21,9 @@ Digital-product sellers rarely lose sales because their product is bad. They los
 
 ## Demo
 
-[DEMO_URL]
+**Live demo: https://buytoship.github.io/listinggenie/**
 
-Share a deployed link or a video demo.
+The demo is a browser port of the fallback engine (the repo's `docs/index.html`, served via GitHub Pages) — it generates the same titles, tags, description and pricing tip entirely in your browser. The Python app in the repo additionally drafts copy with a local open-weight model via Ollama when one is running.
 
 ## Code
 
